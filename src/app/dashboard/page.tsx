@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClientAction, createTrapAction } from "./actions";
-import { createSupabaseClient, hasSupabaseEnv } from "@/lib/supabase";
+import { createSupabaseServerClient, hasSupabaseEnv } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export default async function DashboardPage() {
     return <SetupNotice />;
   }
 
-  const supabase = createSupabaseClient();
+  const supabase = await createSupabaseServerClient();
   const [{ data: clients }, { data: traps }, { data: checks }] = await Promise.all([
     supabase.from("clients").select("*").order("created_at", { ascending: false }),
     supabase.from("traps").select("*, clients(name)").order("created_at", { ascending: false }),

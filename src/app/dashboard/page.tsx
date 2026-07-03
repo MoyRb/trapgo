@@ -9,15 +9,16 @@ type TrapStatus = Database["public"]["Tables"]["traps"]["Row"]["status"];
 
 type DashboardCheck = {
   id: string;
-  status: string;
-  observations: string | null;
-  photo_path: string | null;
+  trap_status: string;
+  activity_level: string | null;
+  notes: string | null;
   photo_url: string | null;
+  technician_name: string | null;
   created_at: string;
   traps: {
-    label: string;
-    site: string;
-    zone: string;
+    name: string;
+    sites: { name: string } | null;
+    zones: { name: string } | null;
     public_code: string;
     clients: { name: string } | null;
   } | null;
@@ -25,12 +26,12 @@ type DashboardCheck = {
 
 type ActiveTrapRow = {
   id: string;
-  label: string;
-  site: string;
-  zone: string;
+  name: string;
+  sites: { name: string } | null;
+  zones: { name: string } | null;
   status: TrapStatus;
   clients: { name: string } | null;
-  trap_checks: { id: string; created_at: string; status: string; photo_path: string | null }[];
+  trap_checks: { id: string; created_at: string; trap_status: string; activity_level: string | null; photo_url: string | null }[];
 };
 
 type MetricCardProps = {
@@ -40,8 +41,8 @@ type MetricCardProps = {
   tone?: "emerald" | "blue" | "amber" | "rose" | "slate";
 };
 
-const activityStatuses = ["activity"];
-const pendingStatuses = ["maintenance", "lost", "damaged", "missing", "pending"];
+const activityLevels = ["low", "medium", "high"];
+const pendingStatuses = ["maintenance", "missing"];
 const activeTrapStatuses = ["active"];
 
 function startOfTodayIso() {
@@ -73,17 +74,17 @@ export default async function DashboardPage() {
     supabase.from("clients").select("id", { count: "exact", head: true }),
     supabase.from("traps").select("id", { count: "exact", head: true }).in("status", activeTrapStatuses),
     supabase.from("trap_checks").select("id", { count: "exact", head: true }).gte("created_at", todayIso),
-    supabase.from("trap_checks").select("id", { count: "exact", head: true }).in("status", activityStatuses),
+    supabase.from("trap_checks").select("id", { count: "exact", head: true }).in("activity_level", activityLevels),
     supabase.from("traps").select("id", { count: "exact", head: true }).in("status", pendingStatuses),
     supabase
       .from("trap_checks")
-      .select("id,status,observations,photo_path,created_at,traps(label,site,zone,public_code,clients(name))")
+      .select("id,trap_status,activity_level,notes,photo_url,technician_name,created_at,traps(name,public_code,clients(name),sites(name),zones(name))")
       .order("created_at", { ascending: false })
       .limit(10),
     supabase
       .from("traps")
-      .select("id,label,site,zone,status,clients(name),trap_checks!inner(id,created_at,status,photo_path)")
-      .eq("trap_checks.status", "activity")
+      .select("id,name,status,clients(name),sites(name),zones(name),trap_checks!inner(id,created_at,trap_status,activity_level,photo_url)")
+      .in("trap_checks.activity_level", ["medium", "high"])
       .order("created_at", { referencedTable: "trap_checks", ascending: false })
       .limit(10),
   ]);
@@ -98,10 +99,7 @@ export default async function DashboardPage() {
     highActivityTrapsResult.error,
   ].find(Boolean);
 
-  const latestChecks = ((latestChecksResult.data ?? []) as Omit<DashboardCheck, "photo_url">[]).map((check) => ({
-    ...check,
-    photo_url: check.photo_path ? supabase.storage.from("trap-photos").getPublicUrl(check.photo_path).data.publicUrl : null,
-  }));
+  const latestChecks = (latestChecksResult.data ?? []) as DashboardCheck[];
   const highActivityTraps = ((highActivityTrapsResult.data ?? []) as ActiveTrapRow[])
     .filter((trap) => trap.trap_checks.length > 0)
     .slice(0, 10);
@@ -121,8 +119,8 @@ export default async function DashboardPage() {
         <MetricCard title="Total de clientes" value={clientsResult.count ?? 0} helper="Clientes registrados" tone="emerald" />
         <MetricCard title="Trampas activas" value={activeTrapsResult.count ?? 0} helper="status active" tone="blue" />
         <MetricCard title="Revisiones hoy" value={todayChecksResult.count ?? 0} helper="Desde las 00:00 locales" tone="slate" />
-        <MetricCard title="Con actividad" value={activityChecksResult.count ?? 0} helper="Revisiones status activity" tone="rose" />
-        <MetricCard title="Servicios pendientes" value={pendingTrapsResult.count ?? 0} helper="Dañadas, perdidas o mantenimiento" tone="amber" />
+        <MetricCard title="Con actividad" value={activityChecksResult.count ?? 0} helper="Actividad baja, media o alta" tone="rose" />
+        <MetricCard title="Trampas pendientes" value={pendingTrapsResult.count ?? 0} helper="No encontradas o mantenimiento" tone="amber" />
       </section>
 
       {firstError ? <section className="mt-6"><ErrorState message={firstError.message} /></section> : null}
@@ -185,35 +183,29 @@ function QuickLink({ href, title, description }: { href: string; title: string; 
 }
 
 function ReviewRow({ check }: { check: DashboardCheck }) {
-  const activityLevel = getActivityLevel(check.status);
+  const activityLevel = check.activity_level ?? "none";
   return (
     <tr className="align-top">
       <td className="px-4 py-4 text-slate-700">{formatDate(check.created_at)}</td>
       <td className="px-4 py-4 font-medium">{check.traps?.clients?.name ?? "Sin cliente"}</td>
-      <td className="px-4 py-4">{check.traps?.label ?? "Sin trampa"}</td>
-      <td className="px-4 py-4 text-slate-600">{check.traps ? `${check.traps.site} · ${check.traps.zone}` : "Sin zona"}</td>
-      <td className="px-4 py-4"><StatusBadge status={check.status} /></td>
+      <td className="px-4 py-4">{check.traps?.name ?? "Sin trampa"}</td>
+      <td className="px-4 py-4 text-slate-600">{check.traps ? `${check.traps.sites?.name ?? "Sin sitio"} · ${check.traps.zones?.name ?? "Sin zona"}` : "Sin zona"}</td>
+      <td className="px-4 py-4"><StatusBadge status={check.trap_status} /></td>
       <td className="px-4 py-4 font-semibold">{activityLevel}</td>
-      <td className="px-4 py-4 text-slate-500">No registrado</td>
-      <td className="px-4 py-4">{check.photo_path ? <a className="font-semibold text-emerald-700 underline" href={check.photo_url ?? check.photo_path ?? "#"} target="_blank" rel="noreferrer">Ver foto</a> : <span className="text-slate-400">Sin foto</span>}</td>
+      <td className="px-4 py-4 text-slate-500">{check.technician_name ?? "No registrado"}</td>
+      <td className="px-4 py-4">{check.photo_url ? <a className="font-semibold text-emerald-700 underline" href={check.photo_url} target="_blank" rel="noreferrer">Ver foto</a> : <span className="text-slate-400">Sin foto</span>}</td>
     </tr>
   );
 }
 
 function HighActivityTrap({ trap }: { trap: ActiveTrapRow }) {
   const lastActivity = trap.trap_checks[0];
-  return <article className="border-b border-slate-100 p-5 last:border-0"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-slate-500">{trap.clients?.name ?? "Sin cliente"}</p><h3 className="mt-1 font-bold">{trap.label}</h3></div><StatusBadge status="activity" /></div><p className="mt-3 text-sm text-slate-600">{trap.site} · {trap.zone}</p><p className="mt-2 text-xs text-slate-500">Última actividad: {lastActivity ? formatDate(lastActivity.created_at) : "Sin fecha"}</p></article>;
+  return <article className="border-b border-slate-100 p-5 last:border-0"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-slate-500">{trap.clients?.name ?? "Sin cliente"}</p><h3 className="mt-1 font-bold">{trap.name}</h3></div><StatusBadge status={lastActivity?.activity_level ?? "activity"} /></div><p className="mt-3 text-sm text-slate-600">{trap.sites?.name ?? "Sin sitio"} · {trap.zones?.name ?? "Sin zona"}</p><p className="mt-2 text-xs text-slate-500">Última actividad: {lastActivity ? formatDate(lastActivity.created_at) : "Sin fecha"}</p></article>;
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const className = status === "activity" ? "bg-rose-50 text-rose-700" : status === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700";
+  const className = ["low", "medium", "high", "activity_detected", "activity"].includes(status) ? "bg-rose-50 text-rose-700" : status === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700";
   return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${className}`}>{status}</span>;
-}
-
-function getActivityLevel(status: string) {
-  if (status === "activity") return "Alta";
-  if (status === "ok") return "Sin actividad";
-  return "Requiere atención";
 }
 
 function formatDate(value: string) {

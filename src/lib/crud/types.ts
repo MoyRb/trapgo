@@ -6,9 +6,7 @@ export type ClientUpdate = Database["public"]["Tables"]["clients"]["Update"];
 export type Trap = Database["public"]["Tables"]["traps"]["Row"];
 export type TrapInsert = Database["public"]["Tables"]["traps"]["Insert"];
 export type TrapUpdate = Database["public"]["Tables"]["traps"]["Update"];
-
-export type TrapStatus = "active" | "inactive" | "maintenance" | "lost";
-
-export type TrapWithClient = Trap & {
-  clients: Pick<Client, "id" | "name"> | null;
-};
+export type Site = Database["public"]["Tables"]["sites"]["Row"];
+export type Zone = Database["public"]["Tables"]["zones"]["Row"];
+export type TrapStatus = Trap["status"];
+export type ClientStatus = Client["status"];

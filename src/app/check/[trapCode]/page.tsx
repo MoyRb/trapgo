@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createSupabaseClient, hasSupabaseEnv } from "@/lib/supabase";
+import { createSupabaseServerClient, hasSupabaseEnv } from "@/lib/supabase/server";
 import { createTrapCheckAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ export default async function CheckPage({ params }: { params: Promise<{ trapCode
   const { trapCode } = await params;
   if (!hasSupabaseEnv()) return <main className="mx-auto max-w-xl px-6 py-12"><h1 className="text-2xl font-bold">Supabase no configurado</h1></main>;
 
-  const supabase = createSupabaseClient();
+  const supabase = await createSupabaseServerClient();
   const { data: trap } = await supabase.from("traps").select("*, clients(name)").eq("code", trapCode).single();
   if (!trap) notFound();
 

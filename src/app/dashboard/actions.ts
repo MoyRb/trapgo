@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createSupabaseClient } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function value(formData: FormData, key: string) {
   const raw = formData.get(key);
@@ -12,7 +12,7 @@ export async function createClientAction(formData: FormData) {
   const name = value(formData, "name");
   if (!name) throw new Error("El nombre del cliente es obligatorio.");
 
-  const supabase = createSupabaseClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("clients").insert({
     name,
     contact_name: value(formData, "contact_name"),
@@ -29,7 +29,7 @@ export async function createTrapAction(formData: FormData) {
   const code = value(formData, "code")?.toUpperCase().replace(/[^A-Z0-9-]/g, "-");
   if (!clientId || !label || !code) throw new Error("Cliente, etiqueta y código son obligatorios.");
 
-  const supabase = createSupabaseClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("traps").insert({
     client_id: clientId,
     label,

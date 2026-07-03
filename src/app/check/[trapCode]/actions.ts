@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createSupabaseClient } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const allowedStatuses = new Set(["ok", "activity", "damaged", "missing"]);
 
@@ -21,7 +21,7 @@ export async function createTrapCheckAction(trapCode: string, trapId: string, fo
   const status = text(formData, "status") ?? "ok";
   if (!allowedStatuses.has(status)) throw new Error("Estado inválido.");
 
-  const supabase = createSupabaseClient();
+  const supabase = await createSupabaseServerClient();
   let photoPath: string | null = null;
   const photo = formData.get("photo");
 

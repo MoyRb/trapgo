@@ -14,12 +14,11 @@ export function normalizePublicCode(value: string) {
     .slice(0, 48);
 }
 
-export function generatePublicCode(label?: string | null) {
-  const prefix = normalizePublicCode(label || "TRAMPA") || "TRAMPA";
-  const suffix = crypto.randomUUID().split("-")[0].toUpperCase();
-  return `${prefix}-${suffix}`.slice(0, 64);
+export function generatePublicCode() {
+  return `TG-${crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}`;
 }
 
 export function trapQrUrl(publicCode: string) {
-  return `/check/${encodeURIComponent(publicCode)}`;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  return `${baseUrl}/check/${encodeURIComponent(publicCode)}`;
 }

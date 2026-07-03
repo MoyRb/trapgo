@@ -4,12 +4,25 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formText } from "@/lib/crud/helpers";
-import type { ClientInsert, ClientUpdate } from "@/lib/crud/types";
+import type { ClientInsert, ClientStatus, ClientUpdate } from "@/lib/crud/types";
+
+const statuses = new Set<ClientStatus>(["active", "inactive"]);
 
 function payload(formData: FormData): ClientInsert {
   const name = formText(formData, "name");
+  const status = (formText(formData, "status") ?? "active") as ClientStatus;
   if (!name) throw new Error("El nombre del cliente es obligatorio.");
-  return { name, contact_name: formText(formData, "contact_name"), email: formText(formData, "email"), phone: formText(formData, "phone"), is_active: formData.get("is_active") !== "false" };
+  if (!statuses.has(status)) throw new Error("Estado de cliente inválido.");
+  return {
+    name,
+    business_name: formText(formData, "business_name"),
+    contact_name: formText(formData, "contact_name"),
+    email: formText(formData, "email"),
+    contact_phone: formText(formData, "contact_phone"),
+    address: formText(formData, "address"),
+    notes: formText(formData, "notes"),
+    status,
+  };
 }
 
 export async function createClient(formData: FormData) {
@@ -32,7 +45,7 @@ export async function updateClient(id: string, formData: FormData) {
 
 export async function deactivateClient(id: string) {
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("clients").update({ is_active: false }).eq("id", id);
+  const { error } = await supabase.from("clients").update({ status: "inactive" }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/clientes");
   revalidatePath(`/clientes/${id}`);

@@ -1,0 +1,2 @@
+"use client";
+export default function Error({ error, reset }: { error: Error; reset: () => void }) { return <main className="mx-auto max-w-2xl px-6 py-12"><div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800"><h1 className="text-xl font-bold">No se pudo cargar clientes</h1><p className="mt-2">{error.message}</p><button className="mt-4 rounded-xl bg-red-700 px-4 py-2 font-semibold text-white" onClick={reset}>Reintentar</button></div></main>; }

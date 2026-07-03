@@ -10,10 +10,12 @@ export default async function CheckPage({ params }: { params: Promise<{ trapCode
   if (!hasSupabaseEnv()) return <main className="mx-auto max-w-xl px-6 py-12"><h1 className="text-2xl font-bold">Supabase no configurado</h1></main>;
 
   const supabase = await createSupabaseServerClient();
-  const { data: trap } = await supabase.from("traps").select("*, clients(name)").eq("code", trapCode).single();
+  const { data: trap } = await supabase.from("traps").select("*, clients(name)").or(`public_code.eq.${trapCode},code.eq.${trapCode}`).single();
   if (!trap) notFound();
 
-  const action = createTrapCheckAction.bind(null, trap.code, trap.id);
+  const publicCode = trap.public_code ?? trap.code;
+  if (!publicCode) notFound();
+  const action = createTrapCheckAction.bind(null, publicCode, trap.id);
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8">
@@ -21,7 +23,7 @@ export default async function CheckPage({ params }: { params: Promise<{ trapCode
         <Link className="text-sm font-semibold text-emerald-700" href="/">TrapGo</Link>
         <p className="mt-6 text-sm font-medium uppercase tracking-wide text-slate-500">{trap.clients?.name}</p>
         <h1 className="mt-1 text-3xl font-bold">Revisión de {trap.label}</h1>
-        <p className="mt-2 text-slate-600">Código: <strong>{trap.code}</strong> · {trap.location_description ?? "Sin ubicación detallada"}</p>
+        <p className="mt-2 text-slate-600">Código: <strong>{publicCode}</strong> · {trap.location_description ?? "Sin ubicación detallada"}</p>
 
         <form action={action} className="mt-8 grid gap-5">
           <label className="grid gap-2 text-sm font-semibold text-slate-700">
